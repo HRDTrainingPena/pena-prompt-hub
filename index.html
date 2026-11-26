@@ -998,3 +998,1350 @@
     }
 
     function dismissRuntimeError() {
+      const banner = document.getElementById('runtimeErrorBanner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    window.onerror = function (message, source, lineno, colno, error) {
+      console.error('Global Error:', { message, source, lineno, colno, error });
+      showRuntimeError('ตรวจพบข้อผิดพลาดในหน้าเว็บ ระบบได้จัดการป้องกันเรียบร้อยแล้ว');
+      return false;
+    };
+
+    window.onunhandledrejection = function (event) {
+      console.error('Unhandled Promise Rejection:', event && event.reason);
+      showRuntimeError('เกิดข้อผิดพลาดระหว่างประมวลผลข้อมูลแบบอะซิงโครนัส');
+    };
+
+    /**
+     * XSS Escaping & Safe Icon Refresh
+     */
+    function escapeHTML(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHTML(str).replace(/`/g, '&#96;');
+    }
+
+    function refreshIcons() {
+      try {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      } catch (err) {
+        // Fallback if Lucide CDN is blocked/offline
+      }
+    }
+
+    /**
+     * 55 Prompts across 13 Departments (Prompt Library Company.csv.xlsx)
+     */
+    const PROMPT_LIBRARY_DATA = [
+      { id: "COR-001", department: "Corporate", deptTh: "บริหารองค์กร (Corporate)", process: "Executive Reporting", name: "Executive Summary", objective: "สรุปข้อมูลเพื่อผู้บริหาร", level: "Manager/Executive", tool: "Copilot", template: "คุณคือ Executive Consultant วิเคราะห์ข้อมูลและจัดทำ Executive Summary, Key Findings, Business Impact, Risks และ Recommendations", input: "ข้อมูลธุรกิจ/รายงาน", output: "Executive Summary", kpi: "คุณภาพรายงาน" },
+      { id: "COR-002", department: "Corporate", deptTh: "บริหารองค์กร (Corporate)", process: "KPI Management", name: "KPI Dashboard Review", objective: "วิเคราะห์ KPI องค์กร", level: "Manager", tool: "Copilot", template: "วิเคราะห์ KPI Dashboard ระบุ KPI ที่ต่ำกว่าเป้าหมาย สาเหตุ ผลกระทบ และแผนปรับปรุง", input: "Dashboard KPI", output: "KPI Review Report", kpi: "% KPI Achievement" },
+      { id: "COR-003", department: "Corporate", deptTh: "บริหารองค์กร (Corporate)", process: "Meeting", name: "Meeting Summary", objective: "สรุปรายงานประชุม", level: "Officer/Manager", tool: "Copilot", template: "สรุปประเด็นประชุม มติ ผู้รับผิดชอบ และกำหนดส่ง", input: "Meeting Note", output: "Meeting Summary", kpi: "Action Closure Rate" },
+
+      { id: "SAL-001", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Sales Analysis", name: "Sales by SKU Analysis", objective: "วิเคราะห์ยอดขายรายสินค้า", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์ยอดขายราย SKU เปรียบเทียบเป้าและช่วงก่อนหน้า ระบุสินค้าเด่นและสินค้าตก", input: "ข้อมูลยอดขายราย SKU", output: "SKU Sales Report", kpi: "Sales Achievement" },
+      { id: "SAL-002", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Customer Analysis", name: "Top 20 Customer Analysis", objective: "วิเคราะห์ลูกค้าหลัก 20 อันดับแรก", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์ Top 20 ลูกค้าตามยอดขายและกำไร ระบุแนวโน้มและโอกาสขยายยอด", input: "ข้อมูลยอดขายรายลูกค้า", output: "Top Customer Report", kpi: "Key Account Growth" },
+      { id: "SAL-003", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Forecasting", name: "Sales Forecast", objective: "พยากรณ์ยอดขาย", level: "Manager", tool: "Copilot", template: "พยากรณ์ยอดขายล่วงหน้าจากข้อมูลย้อนหลังและปัจจัยตลาด พร้อมสมมติฐาน", input: "ยอดขายย้อนหลัง & แคมเปญ", output: "Sales Forecast", kpi: "Forecast Accuracy" },
+      { id: "SAL-004", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Pipeline Management", name: "Sales Pipeline Review", objective: "ติดตามความคืบหน้าโอกาสขาย", level: "Officer/Manager", tool: "Copilot", template: "ทบทวน Sales Pipeline แยกตาม Stage ระบุดีลค้างนานและความเสี่ยงปิดการขายไม่ได้", input: "ข้อมูล Pipeline / CRM", output: "Pipeline Review", kpi: "Win Rate / Cycle Time" },
+      { id: "SAL-005", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Profitability", name: "GP Analysis", objective: "วิเคราะห์กำไรขั้นต้น (GP)", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์ Gross Profit รายกลุ่มสินค้า/ลูกค้า หาสาเหตุ GP ผันผวนและวิธีเพิ่ม GP", input: "ยอดขายและต้นทุนขาย", output: "GP Analysis Report", kpi: "% GP Margin" },
+      { id: "SAL-006", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Loss Analysis", name: "Lost Sale Analysis", objective: "วิเคราะห์สาเหตุการสูญเสียยอดขาย", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์สาเหตุยอดขายหลุด/สินค้าขาดสต็อก และเสนอแนวทางลด Lost Sale", input: "บันทึก Lost Sale / Order Reject", output: "Lost Sale Report", kpi: "% Lost Sale Reduction" },
+      { id: "SAL-007", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Promotion Evaluation", name: "Promotion ROI Analysis", objective: "ประเมินความคุ้มค่าโปรโมชัน", level: "Manager", tool: "Copilot", template: "ประเมินผลตอบแทนโปรโมชันเทียบต้นทุนส่งเสริมการขายและยอดขายที่เพิ่มขึ้น", input: "ข้อมูลยอดขายช่วงโปร & งบส่งเสริม", output: "Promotion ROI Report", kpi: "Promotion ROI" },
+      { id: "SAL-008", department: "Sales", deptTh: "ฝ่ายขาย (Sales)", process: "Segmentation", name: "Customer Segmentation", objective: "แบ่งกลุ่มลูกค้าเชิงกลยุทธ์", level: "Manager", tool: "Copilot", template: "จัดกลุ่มลูกค้าตามพฤติกรรมการซื้อและมูลค่า พร้อมกลยุทธ์ดูแลแต่ละกลุ่ม", input: "ฐานข้อมูลลูกค้า & ประวัติซื้อ", output: "Segmentation Matrix", kpi: "Repeat Purchase Rate" },
+
+      { id: "PM-001", department: "Product Management", deptTh: "บริหารผลิตภัณฑ์ (Product Management)", process: "Product Performance", name: "Product Performance", objective: "ประเมินผลงานสินค้า", level: "Manager", tool: "Copilot", template: "ประเมินผลการดำเนินงานของพอร์ตสินค้า แยกกลุ่มเติบโต ทรงตัว และถดถอย", input: "ข้อมูลยอดขาย & ต้นทุนสินค้า", output: "Product Performance Report", kpi: "Portfolio Revenue" },
+      { id: "PM-002", department: "Product Management", deptTh: "บริหารผลิตภัณฑ์ (Product Management)", process: "Portfolio Mix", name: "Product Mix", objective: "วิเคราะห์สัดส่วนกลุ่มสินค้า", level: "Manager", tool: "Copilot", template: "วิเคราะห์สัดส่วน Product Mix และเสนอการปรับสมดุลเพื่อเพิ่มกำไรรวม", input: "ข้อมูลสัดส่วนสินค้า & GP", output: "Product Mix Proposal", kpi: "Gross Margin Mix" },
+      { id: "PM-003", department: "Product Management", deptTh: "บริหารผลิตภัณฑ์ (Product Management)", process: "Inventory Health", name: "Slow Moving Analysis", objective: "วิเคราะห์สินค้าเคลื่อนไหวช้า", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์สินค้า Slow Moving ระบุสาเหตุและเสนอแผนระบายสต็อกอย่างเหมาะสม", input: "รายงาน Slow Moving Stock", output: "Slow Moving Action Plan", kpi: "Slow Moving Reduction" },
+      { id: "PM-004", department: "Product Management", deptTh: "บริหารผลิตภัณฑ์ (Product Management)", process: "Lifecycle Management", name: "Product Lifecycle", objective: "วางกลยุทธ์วงจรชีวิตสินค้า", level: "Manager", tool: "Copilot", template: "ประเมินระยะวงจรชีวิตสินค้า (Intro/Growth/Maturity/Decline) และกลยุทธ์ถัดไป", input: "ข้อมูลยอดขายย้อนหลัง & ตลาด", output: "Lifecycle Strategy", kpi: "Product Longevity & Margin" },
+      { id: "PM-005", department: "Product Management", deptTh: "บริหารผลิตภัณฑ์ (Product Management)", process: "Margin Management", name: "Margin Analysis", objective: "วิเคราะห์อัตรากำไรรายกลุ่มสินค้า", level: "Manager", tool: "Copilot", template: "วิเคราะห์ Margin รายสินค้า/หมวดหมู่ ระบุจุดรั่วไหลและแนวทางปรับราคา/ต้นทุน", input: "ราคาขาย & ต้นทุนต่อหน่วย", output: "Margin Analysis", kpi: "Target Margin %" },
+      { id: "PM-006", department: "Product Management", deptTh: "บริหารผลิตภัณฑ์ (Product Management)", process: "Prioritization", name: "SKU Prioritization", objective: "จัดลำดับความสำคัญ SKU", level: "Manager", tool: "Copilot", template: "จัดลำดับความสำคัญ SKU ด้วยเกณฑ์ยอดขาย กำไร และความต้องการของตลาด", input: "รายการ SKU & ตัวชี้วัด", output: "SKU Priority List", kpi: "Focus SKU Contribution" },
+
+      { id: "PD-001", department: "Product Development", deptTh: "พัฒนาผลิตภัณฑ์ (Product Development)", process: "Ideation", name: "New Product Concept", objective: "พัฒนาแนวคิดสินค้าใหม่", level: "Officer/Manager", tool: "Copilot", template: "พัฒนาแนวคิดสินค้าใหม่จากความต้องการตลาด จุดเด่น คุณสมบัติ และกลุ่มเป้าหมาย", input: "โจทย์ตลาด / เทรนด์สินค้า", output: "Concept Brief", kpi: "New Concept Approval Rate" },
+      { id: "PD-002", department: "Product Development", deptTh: "พัฒนาผลิตภัณฑ์ (Product Development)", process: "Customer Research", name: "VOC Analysis", objective: "วิเคราะห์เสียงสะท้อนลูกค้า (VOC)", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์ข้อมูล VOC จัดหมวดหมู่ Pain Points ความคาดหวัง และโอกาสพัฒนาสินค้า", input: "ผลสำรวจ / รีวิว / ข้อร้องเรียน", output: "VOC Insight Report", kpi: "VOC Action Coverage" },
+      { id: "PD-003", department: "Product Development", deptTh: "พัฒนาผลิตภัณฑ์ (Product Development)", process: "Benchmarking", name: "Competitive Benchmark", objective: "เปรียบเทียบสินค้ากับคู่แข่ง", level: "Officer/Manager", tool: "Copilot", template: "เปรียบเทียบสเปก ฟีเจอร์ ราคา และจุดแข็ง-จุดอ่อนของสินค้าเรากับคู่แข่ง", input: "ข้อมูลสินค้าคู่แข่ง & ของเรา", output: "Benchmark Matrix", kpi: "Competitive Readiness" },
+      { id: "PD-004", department: "Product Development", deptTh: "พัฒนาผลิตภัณฑ์ (Product Development)", process: "Market Discovery", name: "Gap Market Analysis", objective: "ค้นหาช่องว่างทางการตลาด", level: "Manager", tool: "Copilot", template: "วิเคราะห์ช่องว่างในตลาดที่ยังไม่มีสินค้าตอบโจทย์ครบ พร้อมโอกาสทางธุรกิจ", input: "ข้อมูลตลาด & พฤติกรรมผู้บริโภค", output: "Market Gap Report", kpi: "Opportunity Hit Rate" },
+      { id: "PD-005", department: "Product Development", deptTh: "พัฒนาผลิตภัณฑ์ (Product Development)", process: "Specification", name: "Product Requirement", objective: "กำหนดความต้องการเชิงผลิตภัณฑ์", level: "Officer/Manager", tool: "Copilot", template: "จัดทำ Product Requirement Document ระบุ Functional, Non-Functional และ Acceptance Criteria", input: "แนวคิดสินค้า & ความต้องการ stakeholders", output: "PRD Document", kpi: "Requirement Completeness" },
+
+      { id: "MKT-001", department: "Marketing", deptTh: "การตลาด (Marketing)", process: "Campaign Management", name: "Campaign Planning", objective: "วางแผนแคมเปญการตลาด", level: "Manager", tool: "Copilot", template: "วางแผนแคมเปญการตลาดครบวงจร กำหนดวัตถุประสงค์ กลุ่มเป้าหมาย ข้อความหลัก และงบประมาณ", input: "เป้าหมายแคมเปญ & งบประมาณ", output: "Campaign Plan", kpi: "Campaign Lead / Sales" },
+      { id: "MKT-002", department: "Marketing", deptTh: "การตลาด (Marketing)", process: "Content Creation", name: "Content Calendar", objective: "จัดทำปฏิทินคอนเทนต์", level: "Officer", tool: "Copilot", template: "จัดทำ Content Calendar รายเดือน ระบุหัวข้อ ช่องทาง รูปแบบ และวัตถุประสงค์แต่ละโพสต์", input: "ธีมหลัก & ช่องทางสื่อสาร", output: "Content Calendar", kpi: "Content Consistency & Reach" },
+      { id: "MKT-003", department: "Marketing", deptTh: "การตลาด (Marketing)", process: "Audience Research", name: "Customer Persona", objective: "สร้างภาพจำลองกลุ่มลูกค้า", level: "Officer/Manager", tool: "Copilot", template: "สร้าง Customer Persona ระบุข้อมูลประชากร พฤติกรรม Pain Points และแรงจูงใจในการซื้อ", input: "ข้อมูลกลุ่มเป้าหมาย / วิจัยลูกค้า", output: "Customer Persona Profile", kpi: "Targeting Precision" },
+      { id: "MKT-004", department: "Marketing", deptTh: "การตลาด (Marketing)", process: "Media Strategy", name: "Media Planning", objective: "วางแผนการใช้สื่อโฆษณา", level: "Manager", tool: "Copilot", template: "วางแผน Media Mix แบ่งสัดส่วนงบประมาณตามช่องทางเพื่อให้บรรลุ Reach และ Conversion", input: "งบสื่อ & กลุ่มเป้าหมาย", output: "Media Plan", kpi: "CPM / CPC / CPA" },
+      { id: "MKT-005", department: "Marketing", deptTh: "การตลาด (Marketing)", process: "Performance Measurement", name: "Marketing ROI", objective: "วัดผลตอบแทนการตลาด", level: "Manager", tool: "Copilot", template: "คำนวณและวิเคราะห์ Marketing ROI วิเคราะห์ช่องทางที่ให้ผลตอบแทนสูงสุดและจุดปรับปรุง", input: "ค่าใช้จ่ายการตลาด & ผลลัพธ์", output: "Marketing ROI Report", kpi: "Marketing ROI / ROAS" },
+      { id: "MKT-006", department: "Marketing", deptTh: "การตลาด (Marketing)", process: "Brand Management", name: "Brand Strategy", objective: "กำหนดกลยุทธ์แบรนด์", level: "Manager", tool: "Copilot", template: "กำหนด Brand Positioning, Brand Promise, Tone of Voice และแนวทางสร้างการรับรู้แบรนด์", input: "วิสัยทัศน์ & ภาพลักษณ์ปัจจุบัน", output: "Brand Strategy Deck", kpi: "Brand Awareness & Equity" },
+
+      { id: "HRD-001", department: "HRD", deptTh: "พัฒนาทรัพยากรบุคคล (HRD)", process: "Individual Development", name: "IDP", objective: "จัดทำแผนพัฒนารายบุคคล (IDP)", level: "Officer/Manager", tool: "Copilot", template: "จัดทำ Individual Development Plan (IDP) แบ่งตาม 70-20-10 และระยะเวลาพัฒนา", input: "ผลประเมิน & เป้าหมายตำแหน่ง", output: "IDP Template", kpi: "% IDP Completion" },
+      { id: "HRD-002", department: "HRD", deptTh: "พัฒนาทรัพยากรบุคคล (HRD)", process: "Competency Assessment", name: "Competency Gap Analysis", objective: "วิเคราะห์ช่องว่างสมรรถนะ", level: "Manager", tool: "Copilot", template: "เปรียบเทียบสมรรถนะปัจจุบันกับเกณฑ์ตำแหน่ง (Competency Gap) และเสนอแนวทางปิดช่องว่าง", input: "คะแนนสมรรถนะ & เกณฑ์มาตรฐาน", output: "Competency Gap Report", kpi: "% Gap Closed" },
+      { id: "HRD-003", department: "HRD", deptTh: "พัฒนาทรัพยากรบุคคล (HRD)", process: "Learning Plan", name: "Training Roadmap", objective: "ออกแบบแผนการฝึกอบรมประจำปี", level: "Manager", tool: "Copilot", template: "จัดทำ Training Roadmap รายปี เรียงลำดับหลักสูตรตามความจำเป็นและกลุ่มผู้เรียน", input: "ความต้องการฝึกอบรม & งบ HRD", output: "Training Roadmap", kpi: "Training Hours & Effectiveness" },
+      { id: "HRD-004", department: "HRD", deptTh: "พัฒนาทรัพยากรบุคคล (HRD)", process: "Succession Planning", name: "Succession Plan", objective: "วางแผนผู้สืบทอดตำแหน่งสำคัญ", level: "Manager/Executive", tool: "Copilot", template: "วางแผน Succession Plan สำหรับตำแหน่งสำคัญ ระบุผู้มีศักยภาพ แผนเร่งพัฒนา และกรอบเวลา", input: "Key Positions & Talent Review", output: "Succession Plan", kpi: "Bench Strength Ratio" },
+      { id: "HRD-005", department: "HRD", deptTh: "พัฒนาทรัพยากรบุคคล (HRD)", process: "Talent Management", name: "Talent Pool", objective: "บริหารกลุ่มบุคลากรศักยภาพสูง", level: "Manager", tool: "Copilot", template: "คัดกรองและวางแนวทางพัฒนา Talent Pool ให้สอดคล้องกับแผนเติบโตขององค์กร", input: "ข้อมูลผลงาน & ศักยภาพพนักงาน", output: "Talent Pool Plan", kpi: "Talent Retention Rate" },
+
+      { id: "FIN-001", department: "Finance", deptTh: "การเงินและบัญชี (Finance)", process: "Cash Management", name: "Cash Flow Analysis", objective: "วิเคราะห์กระแสเงินสด", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์กระแสเงินสดรับ-จ่าย แยกกิจกรรมดำเนินงาน ลงทุน และจัดหาเงิน พร้อมจุดเฝ้าระวัง", input: "งบกระแสเงินสด / รายการเดินบัญชี", output: "Cash Flow Analysis", kpi: "Operating Cash Flow & Liquidity" },
+      { id: "FIN-002", department: "Finance", deptTh: "การเงินและบัญชี (Finance)", process: "Budget Control", name: "Budget Variance", objective: "วิเคราะห์ความคลาดเคลื่อนของงบประมาณ", level: "Officer/Manager", tool: "Copilot", template: "เปรียบเทียบงบประมาณกับผลจริง (Budget vs Actual) ระบุรายการที่ Variance สูงและสาเหตุ", input: "งบประมาณ & งบผลดำเนินงานจริง", output: "Budget Variance Report", kpi: "Budget Variance %" },
+      { id: "FIN-003", department: "Finance", deptTh: "การเงินและบัญชี (Finance)", process: "Financial Ratios", name: "Financial Ratio Analysis", objective: "วิเคราะห์อัตราส่วนทางการเงิน", level: "Manager", tool: "Copilot", template: "คำนวณและวิเคราะห์อัตราส่วนทางการเงินด้านสภาพคล่อง ทำกำไร หนี้สิน และประสิทธิภาพ", input: "งบดุล & งบกำไรขาดทุน", output: "Financial Ratio Report", kpi: "ROE / ROA / Current Ratio" },
+      { id: "FIN-004", department: "Finance", deptTh: "การเงินและบัญชี (Finance)", process: "Financial Planning", name: "Forecast Model", objective: "จัดทำแบบจำลองพยากรณ์การเงิน", level: "Manager", tool: "Copilot", template: "สร้างสมมติฐานและโครงสร้างพยากรณ์รายได้ ต้นทุน และกำไรในสถานการณ์ปกติ คาดหวัง และเลวร้าย", input: "ข้อมูลการเงินย้อนหลัง & สมมติฐาน", output: "Financial Forecast Summary", kpi: "Forecast Variance" },
+      { id: "FIN-005", department: "Finance", deptTh: "การเงินและบัญชี (Finance)", process: "Cost Control", name: "Cost Optimization", objective: "เพิ่มประสิทธิภาพและลดต้นทุน", level: "Manager", tool: "Copilot", template: "วิเคราะห์โครงสร้างต้นทุนและค่าใช้จ่าย เพื่อเสนอแนวทางลดต้นทุนโดยไม่กระทบคุณภาพงาน", input: "รายละเอียดค่าใช้จ่าย / ต้นทุน", output: "Cost Optimization Plan", kpi: "Cost Saving Amount / %" },
+
+      { id: "IT-001", department: "IT", deptTh: "เทคโนโลยีสารสนเทศ (IT)", process: "System Analysis", name: "Requirement Analysis", objective: "วิเคราะห์ความต้องการระบบงาน", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์และรวบรวมความต้องการระบบงาน แยก Business Requirement, System Requirement และข้อจำกัด", input: "บรีฟงาน / ความต้องการผู้ใช้", output: "Requirement Spec", kpi: "Requirement Clarity & Sign-off" },
+      { id: "IT-002", department: "IT", deptTh: "เทคโนโลยีสารสนเทศ (IT)", process: "Agile / Delivery", name: "User Story", objective: "เขียน User Story และเกณฑ์ทดสอบ", level: "Officer", tool: "Copilot", template: "เขียน User Story รูปแบบ As a / I want / So that พร้อม Acceptance Criteria ที่ชัดเจน", input: "ฟีเจอร์ / Requirement", output: "User Stories & AC", kpi: "Sprint Delivery Accuracy" },
+      { id: "IT-003", department: "IT", deptTh: "เทคโนโลยีสารสนเทศ (IT)", process: "Documentation", name: "SOP Generator", objective: "สร้างคู่มือขั้นตอนปฏิบัติงาน IT", level: "Officer/Manager", tool: "Copilot", template: "จัดทำ SOP ขั้นตอนการปฏิบัติงาน/แก้ไขปัญหา ระบุผู้รับผิดชอบ ขั้นตอน และจุดตรวจสอบ", input: "ขั้นตอนการทำงานจริง", output: "IT SOP Document", kpi: "SOP Compliance & MTTR" },
+      { id: "IT-004", department: "IT", deptTh: "เทคโนโลยีสารสนเทศ (IT)", process: "Quality Assurance", name: "System Testing Scenario", objective: "ออกแบบกรณีทดสอบระบบ", level: "Officer", tool: "Copilot", template: "สร้าง System Test Scenarios ครอบคลุม Happy Path, Edge Cases และ Negative Cases", input: "สเปกระบบ / User Story", output: "Test Scenario List", kpi: "Defect Escape Rate" },
+      { id: "IT-005", department: "IT", deptTh: "เทคโนโลยีสารสนเทศ (IT)", process: "Incident Management", name: "Incident Report", objective: "จัดทำรายงานเหตุการณ์ระบบขัดข้อง", level: "Officer/Manager", tool: "Copilot", template: "สรุปรายงาน Incident ระบุ Timeline สาเหตุรากเหง้า (RCA) ผลกระทบ และมาตรการป้องกันซ้ำ", input: "บันทึกเหตุการณ์ / Log แก้ไข", output: "Incident & RCA Report", kpi: "MTTR & Repeat Incident Rate" },
+
+      { id: "PRO-001", department: "Procurement", deptTh: "จัดซื้อจัดจ้าง (Procurement)", process: "Vendor Management", name: "Supplier Evaluation", objective: "ประเมินผู้ขาย/ซัพพลายเออร์", level: "Officer/Manager", tool: "Copilot", template: "ประเมินซัพพลายเออร์ตามเกณฑ์ราคา คุณภาพ การส่งมอบ และความน่าเชื่อถือ พร้อมคะแนนถ่วงน้ำหนัก", input: "ข้อมูลผลงาน & ใบเสนอราคาผู้ขาย", output: "Supplier Evaluation Score", kpi: "Vendor Performance Score" },
+      { id: "PRO-002", department: "Procurement", deptTh: "จัดซื้อจัดจ้าง (Procurement)", process: "Cost Reduction", name: "Cost Saving", objective: "สรุปและวางแผนลดต้นทุนการจัดซื้อ", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์โอกาสและสรุปผล Cost Saving จากการเจรจาต่อรอง รวมกลุ่มซื้อ หรือหาทางเลือกทดแทน", input: "ราคาเดิม & ราคาใหม่ / ใบเสนอราคา", output: "Cost Saving Report", kpi: "% Cost Saving" },
+      { id: "PRO-003", department: "Procurement", deptTh: "จัดซื้อจัดจ้าง (Procurement)", process: "Bidding / Sourcing", name: "Vendor Comparison", objective: "เปรียบเทียบข้อเสนอผู้ขายหลายราย", level: "Officer/Manager", tool: "Copilot", template: "จัดทำตารางเปรียบเทียบผู้ขายเทียบเคียงราคา เงื่อนไขชำระเงิน ระยะเวลาส่งมอบ และเงื่อนไขรับประกัน", input: "ใบเสนอราคาผู้ขายหลายราย", output: "Vendor Comparison Matrix", kpi: "Procurement Lead Time & Cost" },
+
+      { id: "WH-001", department: "Warehouse", deptTh: "คลังสินค้าและโลจิสติกส์ (Warehouse)", process: "Inventory Control", name: "Stock Aging", objective: "วิเคราะห์อายุคงคลังสินค้า", level: "Officer/Manager", tool: "Copilot", template: "วิเคราะห์ Stock Aging แยกช่วงอายุสินค้า คงเหลือ และมูลค่า เพื่อหาสินค้าค้างนานหรือเสี่ยงหมดอายุ", input: "รายงานอายุสินค้าคงคลัง", output: "Stock Aging Report", kpi: "Aged Stock %" },
+      { id: "WH-002", department: "Warehouse", deptTh: "คลังสินค้าและโลจิสติกส์ (Warehouse)", process: "Stock Planning", name: "Safety Stock", objective: "คำนวณและทบทวน Safety Stock", level: "Officer/Manager", tool: "Copilot", template: "ทบทวนระดับ Safety Stock จากความผันผวนของยอดขายและ Lead Time ผู้ขาย/การผลิต", input: "ยอดขายรายวัน & Lead Time", output: "Safety Stock Recommendation", kpi: "Stock-out Rate" },
+      { id: "WH-003", department: "Warehouse", deptTh: "คลังสินค้าและโลจิสติกส์ (Warehouse)", process: "Inventory Optimization", name: "Inventory Optimization", objective: "เพิ่มประสิทธิภาพการบริหารสินค้าคงคลัง", level: "Manager", tool: "Copilot", template: "เสนอแนวทางเพิ่มประสิทธิภาพสินค้าคงคลัง สมดุลระหว่างระดับการให้บริการและเงินทุนจม", input: "ข้อมูลคงคลัง & อัตราหมุนเวียน", output: "Inventory Optimization Plan", kpi: "Inventory Turnover / Fill Rate" },
+
+      { id: "AUD-001", department: "Audit", deptTh: "ตรวจสอบภายใน (Audit)", process: "Audit Planning", name: "Audit Planning", objective: "วางแผนการตรวจสอบภายใน", level: "Manager", tool: "Copilot", template: "วางแผนการตรวจสอบภายในอิงความเสี่ยง กำหนดขอบเขต วัตถุประสงค์ แผนงาน และทรัพยากร", input: "Risk Universe & แผนงานปี", output: "Audit Plan", kpi: "Audit Plan Achievement" },
+      { id: "AUD-002", department: "Audit", deptTh: "ตรวจสอบภายใน (Audit)", process: "Internal Control", name: "Internal Control Review", objective: "ทบทวนระบบการควบคุมภายใน", level: "Officer/Manager", tool: "Copilot", template: "ประเมินความเพียงพอและประสิทธิผลของการควบคุมภายใน ระบุจุดอ่อน ความเสี่ยง และข้อเสนอแนะ", input: "ผังกระบวนการ & หลักฐานควบคุม", output: "Internal Control Review Report", kpi: "Control Finding Closure Rate" },
+
+      { id: "BIZ-001", department: "Business Development", deptTh: "พัฒนาธุรกิจ (Business Development)", process: "Business Modeling", name: "Business Model Canvas", objective: "ออกแบบโมเดลธุรกิจ", level: "Manager", tool: "Copilot", template: "จัดทำ Business Model Canvas ครบ 9 ช่อง พร้อมข้อสมมติฐานสำคัญและจุดสร้างรายได้", input: "แนวคิดธุรกิจใหม่ / โครงการ", output: "Business Model Canvas", kpi: "Business Case Readiness" },
+      { id: "BIZ-002", department: "Business Development", deptTh: "พัฒนาธุรกิจ (Business Development)", process: "Feasibility", name: "Feasibility Study", objective: "ศึกษาความเป็นไปได้ของโครงการ", level: "Manager", tool: "Copilot", template: "วิเคราะห์ความเป็นไปได้ด้านตลาด การเงิน การดำเนินงาน และความเสี่ยงของโครงการใหม่", input: "ข้อมูลโครงการ & ประมาณการเบื้องต้น", output: "Feasibility Study Report", kpi: "Project Viability / Payback" },
+
+      { id: "EXE-001", department: "Executive", deptTh: "ผู้บริหารระดับสูง (Executive)", process: "Strategy", name: "Strategic Analysis", objective: "วิเคราะห์เชิงกลยุทธ์ระดับองค์กร", level: "Executive", tool: "Copilot", template: "วิเคราะห์สถานการณ์เชิงกลยุทธ์ขององค์กร มองภาพรวมโอกาส ความเสี่ยง และทางเลือกเชิงนโยบาย", input: "ข้อมูลธุรกิจ & ภาพรวมอุตสาหกรรม", output: "Strategic Analysis Brief", kpi: "Strategic Goal Alignment" },
+      { id: "EXE-002", department: "Executive", deptTh: "ผู้บริหารระดับสูง (Executive)", process: "Governance Reporting", name: "Board Report", objective: "จัดทำรายงานเสนอคณะกรรมการ", level: "Executive", tool: "Copilot", template: "จัดทำรายงานเสนอ Board สรุปภาพรวมผลดำเนินงาน ประเด็นสำคัญ ความเสี่ยง และวาระพิจารณา", input: "รายงานผลดำเนินงานแต่ละฝ่าย", output: "Board Report", kpi: "Board Decision Clarity" }
+    ];
+
+    function generateEnhancedPrompt(item) {
+      const roleMap = {
+        "Corporate": "ที่ปรึกษาอาวุโสด้านกลยุทธ์และการบริหารองค์กร (Executive Strategy & Governance Consultant)",
+        "Sales": "ผู้เชี่ยวชาญอาวุโสด้านการวิเคราะห์การขายและบริหารพอร์ตลูกค้าองค์กร (Senior Sales Analytics & Key Account Lead)",
+        "Product Management": "ผู้จัดการผลิตภัณฑ์อาวุโส (Senior Product Manager) ผู้เชี่ยวชาญด้านพอร์ตสินค้าและอัตรากำไร",
+        "Product Development": "ผู้เชี่ยวชาญด้านการพัฒนาผลิตภัณฑ์และการออกแบบโซลูชัน (Product Development & Solution Specialist)",
+        "Marketing": "นักกลยุทธ์การตลาดและบริหารแบรนด์องค์กรอาวุโส (Senior Marketing & Brand Strategist)",
+        "HRD": "ผู้เชี่ยวชาญด้านการพัฒนาทรัพยากรบุคคลและออกแบบเส้นทางความก้าวหน้า (HRD & Talent Development Specialist)",
+        "Finance": "ผู้เชี่ยวชาญด้านการวิเคราะห์การเงิน งบประมาณ และการบริหารต้นทุนองค์กร (Senior Finance & FP&A Specialist)",
+        "IT": "ผู้เชี่ยวชาญด้านการวิเคราะห์ระบบงาน กระบวนการไอที และคุณภาพซอฟต์แวร์ (IT Systems & Quality Specialist)",
+        "Procurement": "ผู้เชี่ยวชาญด้านการจัดซื้อเชิงกลยุทธ์และการบริหารซัพพลายเออร์ (Strategic Procurement Specialist)",
+        "Warehouse": "ผู้เชี่ยวชาญด้านการบริหารคลังสินค้าและควบคุมระดับสินค้าคงคลัง (Warehouse & Inventory Control Specialist)",
+        "Audit": "ผู้ตรวจสอบภายในและผู้เชี่ยวชาญด้านการควบคุมภายในองค์กร (Internal Audit & Control Specialist)",
+        "Business Development": "ผู้เชี่ยวชาญด้านการพัฒนาธุรกิจและการศึกษาความเป็นไปได้เชิงพาณิชย์ (Business Development Specialist)",
+        "Executive": "ที่ปรึกษาเชิงกลยุทธ์ระดับผู้บริหารและคณะกรรมการ (Executive & Board Advisory Lead)"
+      };
+
+      const role = roleMap[item.department] || `ผู้เชี่ยวชาญด้าน ${item.department}`;
+
+      return `[บทบาท - Role]
+สวมบทบาทเป็น ${role} (ระดับตำแหน่งเป้าหมาย: ${item.level} | เครื่องมือ: ${item.tool})
+
+[คำสั่งและเป้าหมาย - Task & Business Objective]
+ภารกิจหลัก (${item.id} - ${item.name} | กระบวนการ: ${item.process}):
+${item.template}
+เป้าหมายทางธุรกิจ: ${item.objective} โดยมุ่งยกระดับ KPI: "${item.kpi}"
+
+[ข้อมูลนำเข้า - Context / Input Required (${item.input})]
+กรุณาวิเคราะห์จากข้อมูลต่อไปนี้:
+"""
+[วางข้อมูล ${item.input} ของหน่วยงานคุณที่นี่ เช่น ตัวเลข รายงาน หรือรายละเอียดงานจริง]
+"""
+
+[รูปแบบผลลัพธ์ที่ต้องการ - Output Format & KPI Alignment]
+1. จัดทำผลลัพธ์ในรูปแบบ: ${item.output} ที่ชัดเจน เป็นระบบ และพร้อมนำไปใช้ทันที
+2. ระบุประเด็นสำคัญ (Key Takeaways), ความเสี่ยง/จุดควรระวัง และข้อเสนอแนะเชิงปฏิบัติ (Action Plan)
+3. อธิบายวิธีติดตามและเชื่อมโยงผลลัพธ์เข้ากับ KPI: "${item.kpi}"`;
+    }
+
+    /**
+     * Application State with Safe Hydration
+     */
+    const USER_STORAGE_KEY = 'enterprise_prompt_current_user';
+    const LEGACY_USER_KEY = 'enterprise_prompt_user_v1';
+    const LEARNED_STORAGE_KEY = 'enterprise_prompt_learned_by_user_v1';
+    const LOGS_STORAGE_KEY = 'enterprise_prompt_study_logs';
+    const LEGACY_LOGS_KEY = 'enterprise_prompt_study_logs_v1';
+
+    let currentUser = sanitizeUserProfile(
+      safeParseJSON(SafeStorage.getItem(USER_STORAGE_KEY) || SafeStorage.getItem(LEGACY_USER_KEY), null)
+    );
+    let learnedByUser = sanitizeLearnedMap(
+      safeParseJSON(SafeStorage.getItem(LEARNED_STORAGE_KEY), {})
+    );
+
+    const rawSavedLogs = SafeStorage.getItem(LOGS_STORAGE_KEY) || SafeStorage.getItem(LEGACY_LOGS_KEY);
+    let studyLogs = rawSavedLogs !== null
+      ? sanitizeLogsArray(safeParseJSON(rawSavedLogs, []))
+      : sanitizeLogsArray([
+          {
+            timestamp: "25/11/2569 09:15:10",
+            empId: "00102",
+            empName: "สมชาย ใจดี",
+            empDept: "Sales",
+            empLevel: "Manager",
+            promptId: "SAL-001",
+            promptName: "Sales by SKU Analysis",
+            promptDept: "Sales",
+            action: "เปิดศึกษา (View)"
+          },
+          {
+            timestamp: "25/11/2569 09:18:44",
+            empId: "00102",
+            empName: "สมชาย ใจดี",
+            empDept: "Sales",
+            empLevel: "Manager",
+            promptId: "SAL-001",
+            promptName: "Sales by SKU Analysis",
+            promptDept: "Sales",
+            action: "คัดลอก Prompt (Copy)"
+          },
+          {
+            timestamp: "25/11/2569 10:05:22",
+            empId: "A6100017",
+            empName: "นพวัชร์ แดงสระน้อย",
+            empDept: "HRD",
+            empLevel: "Manager",
+            promptId: "HRD-002",
+            promptName: "Competency Gap Analysis",
+            promptDept: "HRD",
+            action: "เรียนจบหัวข้อ (Completed)"
+          },
+          {
+            timestamp: "25/11/2569 11:40:51",
+            empId: "00042",
+            empName: "ปิยะธิดา มั่นคง",
+            empDept: "Finance",
+            empLevel: "Manager",
+            promptId: "FIN-002",
+            promptName: "Budget Variance",
+            promptDept: "Finance",
+            action: "คัดลอก Prompt (Copy)"
+          }
+        ]);
+
+    function persistLogs() {
+      studyLogs = sanitizeLogsArray(studyLogs);
+      const serialized = JSON.stringify(studyLogs);
+      SafeStorage.setItem(LOGS_STORAGE_KEY, serialized);
+      SafeStorage.setItem(LEGACY_LOGS_KEY, serialized);
+    }
+
+    function persistCurrentUser() {
+      if (currentUser) {
+        const serialized = JSON.stringify(currentUser);
+        SafeStorage.setItem(USER_STORAGE_KEY, serialized);
+        SafeStorage.setItem(LEGACY_USER_KEY, serialized);
+      } else {
+        SafeStorage.removeItem(USER_STORAGE_KEY);
+        SafeStorage.removeItem(LEGACY_USER_KEY);
+      }
+    }
+
+    function persistLearnedMap() {
+      learnedByUser = sanitizeLearnedMap(learnedByUser);
+      SafeStorage.setItem(LEARNED_STORAGE_KEY, JSON.stringify(learnedByUser));
+    }
+
+    let currentModalItem = null;
+    let selectedBuilderPromptId = null;
+    let pendingActionAfterLogin = null;
+    let lastViewRecordMeta = { key: '', time: 0 };
+
+    function formatThaiTimestamp() {
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const buddhistYear = now.getFullYear() + 543;
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      return `${day}/${month}/${buddhistYear} ${hours}:${minutes}:${seconds}`;
+    }
+
+    /**
+     * Activity Logger with duplicate rapid View spam protection (2s window)
+     */
+    function recordStudyActivity(item, actionType) {
+      if (!item || typeof item !== 'object') return;
+      const learner = currentUser || {
+        empId: "GUEST",
+        empName: "ผู้เยี่ยมชม (ไม่ได้ระบุรหัส)",
+        empDept: "Other",
+        empLevel: "Officer"
+      };
+
+      if (actionType === "เปิดศึกษา (View)") {
+        const viewKey = `${learner.empId}::${item.id}`;
+        const nowMs = Date.now();
+        if (lastViewRecordMeta.key === viewKey && (nowMs - lastViewRecordMeta.time) < 2000) {
+          return;
+        }
+        lastViewRecordMeta = { key: viewKey, time: nowMs };
+      }
+
+      const entry = {
+        timestamp: formatThaiTimestamp(),
+        empId: String(learner.empId),
+        empName: String(learner.empName),
+        empDept: String(learner.empDept),
+        empLevel: String(learner.empLevel || "Officer"),
+        promptId: String(item.id || "-"),
+        promptName: String(item.name || "-"),
+        promptDept: String(item.department || "Other"),
+        action: String(actionType)
+      };
+
+      studyLogs.unshift(entry);
+      persistLogs();
+      updateLogBadge();
+
+      const logsSection = document.getElementById('view-logs');
+      if (logsSection && !logsSection.classList.contains('hidden')) {
+        renderLogsView();
+      }
+    }
+
+    function requireLoggedInUser(callback) {
+      if (currentUser && currentUser.empId) {
+        try {
+          callback();
+        } catch (err) {
+          console.error('Action callback error:', err);
+          showRuntimeError('ไม่สามารถดำเนินการคำสั่งนี้ได้ในขณะนี้');
+        }
+        return true;
+      }
+      pendingActionAfterLogin = callback;
+      showToast('กรุณาลงทะเบียนรหัสพนักงานก่อนเข้าศึกษาหรือคัดลอก Prompt');
+      openUserLoginModal(false);
+      return false;
+    }
+
+    function getUserLearnedIds() {
+      if (!currentUser || !currentUser.empId) return [];
+      const key = String(currentUser.empId);
+      return Array.isArray(learnedByUser[key]) ? learnedByUser[key] : [];
+    }
+
+    function setUserLearnedIds(idsArray) {
+      if (!currentUser || !currentUser.empId) return;
+      const key = String(currentUser.empId);
+      const validSet = new Set(PROMPT_LIBRARY_DATA.map(p => p.id));
+      learnedByUser[key] = [...new Set(idsArray.map(String))].filter(id => validSet.has(id));
+      persistLearnedMap();
+    }
+
+    function updateLogBadge() {
+      const badge = document.getElementById('navLogCountBadge');
+      if (badge) badge.textContent = String(studyLogs.length);
+    }
+
+    function updateProgressUI() {
+      const learnedCount = currentUser ? getUserLearnedIds().length : 0;
+      const total = PROMPT_LIBRARY_DATA.length;
+      const pct = Math.min(100, Math.round((learnedCount / total) * 100));
+
+      document.getElementById('desktopLearnedCount').textContent = String(learnedCount);
+      document.getElementById('desktopProgressBar').style.width = `${pct}%`;
+      document.getElementById('desktopProgressPercent').textContent = `${pct}%`;
+      document.getElementById('mobileProgressText').textContent = `${learnedCount}/${total}`;
+      document.getElementById('statLearned').textContent = String(learnedCount);
+    }
+
+    /**
+     * Employee Check-in, Profile Edit & Log Out (ออกจากระบบ)
+     */
+    function clearFieldValidation(inputId, msgId) {
+      const inputEl = document.getElementById(inputId);
+      const msgEl = document.getElementById(msgId);
+      if (inputEl) {
+        inputEl.classList.remove('border-rose-500', 'ring-2', 'ring-rose-200');
+        inputEl.classList.add('border-slate-200');
+      }
+      if (msgEl) msgEl.classList.add('hidden');
+    }
+
+    function markFieldInvalid(inputId, msgId) {
+      const inputEl = document.getElementById(inputId);
+      const msgEl = document.getElementById(msgId);
+      if (inputEl) {
+        inputEl.classList.remove('border-slate-200');
+        inputEl.classList.add('border-rose-500', 'ring-2', 'ring-rose-200');
+      }
+      if (msgEl) msgEl.classList.remove('hidden');
+    }
+
+    function openUserLoginModal(isInitialRequired = false) {
+      const modal = document.getElementById('userLoginModal');
+      const closeBtn = document.getElementById('closeLoginModalBtn');
+      const modalLogoutBtn = document.getElementById('modalLogoutBtn');
+
+      clearFieldValidation('inputEmpId', 'empIdErrorMsg');
+      clearFieldValidation('inputEmpName', 'empNameErrorMsg');
+      clearFieldValidation('inputEmpDept', 'empDeptErrorMsg');
+
+      if (currentUser) {
+        document.getElementById('inputEmpId').value = String(currentUser.empId || '');
+        document.getElementById('inputEmpName').value = String(currentUser.empName || '');
+        document.getElementById('inputEmpDept').value = String(currentUser.empDept || '');
+        document.getElementById('inputEmpLevel').value = String(currentUser.empLevel || 'Officer');
+        closeBtn.classList.remove('hidden');
+        modalLogoutBtn.classList.remove('hidden');
+        modalLogoutBtn.classList.add('flex');
+      } else {
+        document.getElementById('inputEmpId').value = '';
+        document.getElementById('inputEmpName').value = '';
+        document.getElementById('inputEmpDept').value = '';
+        document.getElementById('inputEmpLevel').value = 'Officer';
+        modalLogoutBtn.classList.add('hidden');
+        modalLogoutBtn.classList.remove('flex');
+        if (!isInitialRequired) {
+          closeBtn.classList.remove('hidden');
+        } else {
+          closeBtn.classList.add('hidden');
+        }
+      }
+      modal.classList.remove('hidden');
+      refreshIcons();
+    }
+
+    function closeUserLoginModal() {
+      document.getElementById('userLoginModal').classList.add('hidden');
+    }
+
+    function openLogoutConfirmModal() {
+      if (!currentUser) return;
+      document.getElementById('logoutUserSummary').textContent =
+        `${currentUser.empId} • ${currentUser.empName} (${currentUser.empDept})`;
+      document.getElementById('logoutConfirmModal').classList.remove('hidden');
+      refreshIcons();
+    }
+
+    function closeLogoutConfirmModal() {
+      document.getElementById('logoutConfirmModal').classList.add('hidden');
+    }
+
+    function confirmLogout() {
+      if (!currentUser) return;
+      const loggedOutName = currentUser.empName;
+      const loggedOutId = currentUser.empId;
+
+      recordStudyActivity(
+        { id: "SESSION-LOGOUT", name: "ออกจากระบบศูนย์เรียนรู้ (Session End)", department: currentUser.empDept },
+        "ออกจากระบบ (Log Out)"
+      );
+
+      currentUser = null;
+      pendingActionAfterLogin = null;
+      persistCurrentUser();
+
+      closeLogoutConfirmModal();
+      closePromptModal();
+      updateUserHeaderUI();
+      updateProgressUI();
+      renderCards();
+
+      showToast(`ออกจากระบบของ ${loggedOutName} (${loggedOutId}) เรียบร้อยแล้ว`);
+      openUserLoginModal(false);
+    }
+
+    function saveEmployeeProfile(event) {
+      if (event) event.preventDefault();
+
+      const rawId = String(document.getElementById('inputEmpId').value || '').trim();
+      const rawName = String(document.getElementById('inputEmpName').value || '').trim();
+      const rawDept = String(document.getElementById('inputEmpDept').value || '').trim();
+      const rawLevel = String(document.getElementById('inputEmpLevel').value || 'Officer').trim();
+
+      let hasError = false;
+      if (!rawId) {
+        markFieldInvalid('inputEmpId', 'empIdErrorMsg');
+        hasError = true;
+      } else {
+        clearFieldValidation('inputEmpId', 'empIdErrorMsg');
+      }
+
+      if (!rawName) {
+        markFieldInvalid('inputEmpName', 'empNameErrorMsg');
+        hasError = true;
+      } else {
+        clearFieldValidation('inputEmpName', 'empNameErrorMsg');
+      }
+
+      if (!rawDept) {
+        markFieldInvalid('inputEmpDept', 'empDeptErrorMsg');
+        hasError = true;
+      } else {
+        clearFieldValidation('inputEmpDept', 'empDeptErrorMsg');
+      }
+
+      if (hasError) {
+        showToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
+        return;
+      }
+
+      const isNewSession = !currentUser || currentUser.empId !== rawId;
+      currentUser = {
+        empId: rawId,
+        empName: rawName,
+        empDept: rawDept,
+        empLevel: rawLevel
+      };
+      persistCurrentUser();
+
+      if (isNewSession) {
+        recordStudyActivity(
+          { id: "SESSION-LOGIN", name: "ลงทะเบียนเข้าสู่ระบบ (Session Start)", department: rawDept },
+          "เข้าสู่ระบบ (Log In)"
+        );
+      }
+
+      updateUserHeaderUI();
+      updateProgressUI();
+      renderCards();
+      closeUserLoginModal();
+      showToast(`ยินดีต้อนรับคุณ ${rawName} (${rawId}) ระบบพร้อมบันทึกการเรียนรู้แล้ว`);
+
+      if (typeof pendingActionAfterLogin === 'function') {
+        const nextAction = pendingActionAfterLogin;
+        pendingActionAfterLogin = null;
+        nextAction();
+      }
+    }
+
+    function updateUserHeaderUI() {
+      const desktopLogoutBtn = document.getElementById('desktopLogoutBtn');
+      const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+      const desktopAvatar = document.getElementById('desktopUserAvatar');
+
+      if (currentUser) {
+        document.getElementById('desktopUserId').textContent = currentUser.empId;
+        document.getElementById('desktopUserDept').textContent = `${currentUser.empDept} (${currentUser.empLevel})`;
+        document.getElementById('desktopUserName').textContent = currentUser.empName;
+        const firstPart = currentUser.empName.split(/\s+/)[0] || currentUser.empName;
+        document.getElementById('mobileUserName').textContent = `${currentUser.empId} ${firstPart}`;
+
+        desktopAvatar.classList.remove('bg-slate-400');
+        desktopAvatar.classList.add('bg-emerald-600');
+        desktopLogoutBtn.classList.remove('hidden');
+        desktopLogoutBtn.classList.add('inline-flex');
+        mobileLogoutBtn.classList.remove('hidden');
+        mobileLogoutBtn.classList.add('inline-flex');
+      } else {
+        document.getElementById('desktopUserId').textContent = "GUEST";
+        document.getElementById('desktopUserDept').textContent = "ยังไม่เข้าสู่ระบบ";
+        document.getElementById('desktopUserName').textContent = "คลิกเพื่อลงทะเบียนเข้าสู่ระบบ";
+        document.getElementById('mobileUserName').textContent = "เข้าสู่ระบบ";
+
+        desktopAvatar.classList.remove('bg-emerald-600');
+        desktopAvatar.classList.add('bg-slate-400');
+        desktopLogoutBtn.classList.add('hidden');
+        desktopLogoutBtn.classList.remove('inline-flex');
+        mobileLogoutBtn.classList.add('hidden');
+        mobileLogoutBtn.classList.remove('inline-flex');
+      }
+      refreshIcons();
+    }
+
+    /**
+     * Tab Navigation
+     */
+    function switchTab(tabName) {
+      const validTabs = ['library', 'guide', 'builder', 'logs'];
+      const target = validTabs.includes(tabName) ? tabName : 'library';
+
+      validTabs.forEach(t => {
+        const view = document.getElementById(`view-${t}`);
+        const btn = document.getElementById(`tab-${t}`);
+        if (view) view.classList.toggle('hidden', t !== target);
+        if (btn) {
+          if (t === target) {
+            btn.classList.remove('border-transparent', 'text-slate-500');
+            btn.classList.add('border-indigo-600', 'text-indigo-600');
+          } else {
+            btn.classList.remove('border-indigo-600', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-slate-500');
+          }
+        }
+      });
+
+      if (target === 'guide') renderComparison();
+      if (target === 'builder') updateBuilderPreview();
+      if (target === 'logs') renderLogsView();
+      refreshIcons();
+    }
+
+    /**
+     * Filter Controls & Rendering (55 Prompts / 13 Departments)
+     */
+    function initFilters() {
+      const deptSelect = document.getElementById('deptFilter');
+      const levelSelect = document.getElementById('levelFilter');
+      const processSelect = document.getElementById('processFilter');
+      const pillsContainer = document.getElementById('deptPillsContainer');
+      const inputEmpDept = document.getElementById('inputEmpDept');
+      const logUserDeptFilter = document.getElementById('logUserDeptFilter');
+
+      const departments = [...new Set(PROMPT_LIBRARY_DATA.map(d => d.department))];
+      const levels = [...new Set(PROMPT_LIBRARY_DATA.map(d => d.level))];
+      const processes = [...new Set(PROMPT_LIBRARY_DATA.map(d => d.process))];
+
+      deptSelect.innerHTML = '<option value="ALL">🏢 ทุกแผนก (13 Departments)</option>';
+      inputEmpDept.innerHTML = '<option value="">-- เลือกแผนก --</option>';
+      logUserDeptFilter.innerHTML = '<option value="ALL">ทุกแผนกพนักงาน</option>';
+
+      departments.forEach(dept => {
+        const count = PROMPT_LIBRARY_DATA.filter(p => p.department === dept).length;
+        const opt = document.createElement('option');
+        opt.value = dept;
+        opt.textContent = `${dept} (${count})`;
+        deptSelect.appendChild(opt);
+
+        const empOpt = document.createElement('option');
+        empOpt.value = dept;
+        empOpt.textContent = dept;
+        inputEmpDept.appendChild(empOpt);
+
+        const logDeptOpt = document.createElement('option');
+        logDeptOpt.value = dept;
+        logDeptOpt.textContent = dept;
+        logUserDeptFilter.appendChild(logDeptOpt);
+      });
+
+      const otherOpt = document.createElement('option');
+      otherOpt.value = 'Other';
+      otherOpt.textContent = 'Other';
+      inputEmpDept.appendChild(otherOpt);
+
+      const otherLogOpt = document.createElement('option');
+      otherLogOpt.value = 'Other';
+      otherLogOpt.textContent = 'Other';
+      logUserDeptFilter.appendChild(otherLogOpt);
+
+      levelSelect.innerHTML = '<option value="ALL">👤 ทุกระดับตำแหน่ง</option>';
+      levels.forEach(lvl => {
+        const opt = document.createElement('option');
+        opt.value = lvl;
+        opt.textContent = lvl;
+        levelSelect.appendChild(opt);
+      });
+
+      processSelect.innerHTML = '<option value="ALL">⚙️ ทุกกระบวนการ</option>';
+      processes.forEach(proc => {
+        const opt = document.createElement('option');
+        opt.value = proc;
+        opt.textContent = proc;
+        processSelect.appendChild(opt);
+      });
+
+      let pillsHTML = `<button type="button" data-dept="ALL" onclick="selectDeptPill('ALL')"
+        class="dept-pill px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition bg-indigo-600 text-white shadow-sm">
+        ทั้งหมด (${PROMPT_LIBRARY_DATA.length})
+      </button>`;
+
+      departments.forEach(dept => {
+        const count = PROMPT_LIBRARY_DATA.filter(p => p.department === dept).length;
+        pillsHTML += `<button type="button" data-dept="${escapeAttr(dept)}" onclick="selectDeptPill('${escapeAttr(dept)}')"
+          class="dept-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition bg-slate-100 text-slate-600 hover:bg-slate-200">
+          ${escapeHTML(dept)} (${count})
+        </button>`;
+      });
+      pillsContainer.innerHTML = pillsHTML;
+
+      document.getElementById('searchInput').addEventListener('input', renderCards);
+      deptSelect.addEventListener('change', () => {
+        syncDeptPills(deptSelect.value);
+        renderCards();
+      });
+      levelSelect.addEventListener('change', renderCards);
+      processSelect.addEventListener('change', renderCards);
+      document.getElementById('onlyUnlearnedCheckbox').addEventListener('change', renderCards);
+    }
+
+    function selectDeptPill(dept) {
+      document.getElementById('deptFilter').value = dept;
+      syncDeptPills(dept);
+      renderCards();
+    }
+
+    function syncDeptPills(activeDept) {
+      document.querySelectorAll('.dept-pill').forEach(btn => {
+        const isActive = btn.getAttribute('data-dept') === activeDept;
+        btn.className = isActive
+          ? 'dept-pill px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition bg-indigo-600 text-white shadow-sm'
+          : 'dept-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition bg-slate-100 text-slate-600 hover:bg-slate-200';
+      });
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('deptFilter').value = 'ALL';
+      document.getElementById('levelFilter').value = 'ALL';
+      document.getElementById('processFilter').value = 'ALL';
+      document.getElementById('onlyUnlearnedCheckbox').checked = false;
+      syncDeptPills('ALL');
+      renderCards();
+    }
+
+    function getFilteredPrompts() {
+      const q = String(document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const dept = document.getElementById('deptFilter').value;
+      const level = document.getElementById('levelFilter').value;
+      const process = document.getElementById('processFilter').value;
+      const onlyUnlearned = document.getElementById('onlyUnlearnedCheckbox').checked;
+      const learnedIds = getUserLearnedIds();
+
+      return PROMPT_LIBRARY_DATA.filter(item => {
+        if (dept !== 'ALL' && item.department !== dept) return false;
+        if (level !== 'ALL' && item.level !== level) return false;
+        if (process !== 'ALL' && item.process !== process) return false;
+        if (onlyUnlearned && learnedIds.includes(item.id)) return false;
+
+        if (q) {
+          const hay = `${item.id} ${item.department} ${item.deptTh} ${item.process} ${item.name} ${item.objective} ${item.level} ${item.template} ${item.input} ${item.output} ${item.kpi}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderCards() {
+      const grid = document.getElementById('promptGrid');
+      const empty = document.getElementById('emptyState');
+      const filtered = getFilteredPrompts();
+      const learnedIds = getUserLearnedIds();
+
+      document.getElementById('resultCount').textContent = String(filtered.length);
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+
+      grid.innerHTML = filtered.map(item => {
+        const isLearned = learnedIds.includes(item.id);
+        return `
+          <article class="bg-white rounded-2xl border ${isLearned ? 'border-emerald-200 ring-1 ring-emerald-100' : 'border-slate-200/90'} shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group">
+            <div class="p-5 space-y-3.5">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/70 font-heading font-bold text-xs">
+                    ${escapeHTML(item.id)}
+                  </span>
+                  <span class="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
+                    ${escapeHTML(item.department)}
+                  </span>
+                </div>
+
+                <button type="button" onclick="toggleLearned('${escapeAttr(item.id)}', event)" title="ทำเครื่องหมายว่าศึกษาแล้ว"
+                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition ${
+                    isLearned
+                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      : 'bg-slate-50 text-slate-400 hover:text-slate-700 border border-slate-200'
+                  }">
+                  <i data-lucide="${isLearned ? 'check-circle-2' : 'circle'}" class="w-3.5 h-3.5"></i>
+                  <span>${isLearned ? 'ศึกษาแล้ว' : 'ยังไม่ศึกษา'}</span>
+                </button>
+              </div>
+
+              <div>
+                <div class="text-[11px] font-semibold text-indigo-600 uppercase tracking-wide">${escapeHTML(item.process)}</div>
+                <h3 class="text-base font-bold text-slate-900 group-hover:text-indigo-700 transition leading-snug mt-0.5">
+                  ${escapeHTML(item.name)}
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">เป้าหมาย: ${escapeHTML(item.objective)}</p>
+              </div>
+
+              <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                  <span>Prompt Template</span>
+                  <span class="font-semibold text-sky-700">${escapeHTML(item.tool)}</span>
+                </div>
+                <p class="text-xs text-slate-700 font-mono line-clamp-2 leading-relaxed">
+                  "${escapeHTML(item.template)}"
+                </p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+                <div class="bg-slate-50/70 px-2.5 py-1.5 rounded-lg border border-slate-100">
+                  <span class="text-[10px] text-slate-400 block">Job Level</span>
+                  <span class="font-semibold text-slate-700 truncate block">${escapeHTML(item.level)}</span>
+                </div>
+                <div class="bg-emerald-50/60 px-2.5 py-1.5 rounded-lg border border-emerald-100/80">
+                  <span class="text-[10px] text-emerald-600 block">KPI เป้าหมาย</span>
+                  <span class="font-semibold text-emerald-800 truncate block">${escapeHTML(item.kpi)}</span>
+                </div>
+              </div>
+
+              <div class="text-[11px] text-slate-500 space-y-0.5 pt-0.5">
+                <div><strong class="text-slate-600">Input:</strong> ${escapeHTML(item.input)}</div>
+                <div><strong class="text-slate-600">Output:</strong> ${escapeHTML(item.output)}</div>
+              </div>
+            </div>
+
+            <div class="px-5 py-3 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between gap-2">
+              <button type="button" onclick="openPromptModal('${escapeAttr(item.id)}')"
+                class="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-heading font-semibold rounded-xl transition inline-flex items-center justify-center gap-1.5 shadow-sm">
+                <i data-lucide="book-open-check" class="w-3.5 h-3.5"></i>
+                เปิดศึกษาตัวอย่าง
+              </button>
+              <button type="button" onclick="quickCopyEnhanced('${escapeAttr(item.id)}')" title="คัดลอก Prompt ฉบับเต็ม (R-T-C-F)"
+                class="py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition inline-flex items-center gap-1">
+                <i data-lucide="copy" class="w-3.5 h-3.5 text-emerald-600"></i>
+                คัดลอก
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      refreshIcons();
+    }
+
+    function toggleLearned(id, event) {
+      if (event) event.stopPropagation();
+      requireLoggedInUser(() => {
+        const item = PROMPT_LIBRARY_DATA.find(p => p.id === id);
+        if (!item) return;
+        let learnedIds = getUserLearnedIds();
+
+        if (learnedIds.includes(id)) {
+          learnedIds = learnedIds.filter(x => x !== id);
+          setUserLearnedIds(learnedIds);
+          showToast(`ยกเลิกสถานะศึกษาแล้วของ ${id}`);
+        } else {
+          learnedIds.push(id);
+          setUserLearnedIds(learnedIds);
+          recordStudyActivity(item, "เรียนจบหัวข้อ (Completed)");
+          showToast(`บันทึกความคืบหน้า: เรียนจบหัวข้อ ${id} เรียบร้อยแล้ว!`);
+        }
+        updateProgressUI();
+        renderCards();
+        if (currentModalItem && currentModalItem.id === id) {
+          updateModalLearnedButton();
+        }
+      });
+    }
+
+    /**
+     * Prompt Detail Modal
+     */
+    function openPromptModal(id) {
+      requireLoggedInUser(() => {
+        const item = PROMPT_LIBRARY_DATA.find(p => p.id === id);
+        if (!item) return;
+        currentModalItem = item;
+
+        recordStudyActivity(item, "เปิดศึกษา (View)");
+
+        document.getElementById('mId').textContent = item.id;
+        document.getElementById('mDept').textContent = `${item.department} (${item.deptTh})`;
+        document.getElementById('mProcess').textContent = `• ${item.process}`;
+        document.getElementById('mName').textContent = item.name;
+        document.getElementById('mLevel').querySelector('span').textContent = item.level;
+        document.getElementById('mTool').querySelector('span').textContent = item.tool;
+        document.getElementById('mKpi').querySelector('span').textContent = item.kpi;
+        document.getElementById('mObjective').textContent = item.objective;
+        document.getElementById('mInput').textContent = item.input;
+        document.getElementById('mOutput').textContent = item.output;
+        document.getElementById('mBasePrompt').textContent = item.template;
+        document.getElementById('mEnhancedPrompt').textContent = generateEnhancedPrompt(item);
+
+        updateModalLearnedButton();
+        document.getElementById('promptModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        refreshIcons();
+      });
+    }
+
+    function closePromptModal() {
+      document.getElementById('promptModal').classList.add('hidden');
+      document.body.style.overflow = '';
+      currentModalItem = null;
+    }
+
+    function updateModalLearnedButton() {
+      if (!currentModalItem) return;
+      const isLearned = getUserLearnedIds().includes(currentModalItem.id);
+      const btn = document.getElementById('mMarkLearnedBtn');
+      if (isLearned) {
+        btn.className = 'px-4 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 transition border bg-emerald-100 text-emerald-800 border-emerald-300';
+        btn.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4"></i> ศึกษาหัวข้อนี้แล้ว (คลิกเพื่อยกเลิก)`;
+      } else {
+        btn.className = 'px-4 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 transition border bg-white hover:bg-emerald-50 text-slate-700 border-slate-300';
+        btn.innerHTML = `<i data-lucide="circle-check" class="w-4 h-4 text-emerald-600"></i> ทำเครื่องหมายว่าศึกษาแล้ว`;
+      }
+      refreshIcons();
+    }
+
+    function toggleLearnedFromModal() {
+      if (!currentModalItem) return;
+      toggleLearned(currentModalItem.id, null);
+    }
+
+    function copyModalPrompt(mode) {
+      if (!currentModalItem) return;
+      requireLoggedInUser(() => {
+        const text = mode === 'base' ? currentModalItem.template : generateEnhancedPrompt(currentModalItem);
+        const label = mode === 'base' ? 'คำสั่งต้นฉบับ' : 'Prompt ฉบับเต็ม (R-T-C-F)';
+        recordStudyActivity(currentModalItem, "คัดลอก Prompt (Copy)");
+        copyToClipboard(text, `คัดลอก${label} ของ ${currentModalItem.id} และบันทึกประวัติแล้ว!`);
+      });
+    }
+
+    function quickCopyEnhanced(id) {
+      requireLoggedInUser(() => {
+        const item = PROMPT_LIBRARY_DATA.find(p => p.id === id);
+        if (!item) return;
+        recordStudyActivity(item, "คัดลอก Prompt (Copy)");
+        copyToClipboard(generateEnhancedPrompt(item), `คัดลอก Prompt ฉบับเต็มของ ${id} และบันทึกประวัติแล้ว!`);
+      });
+    }
+
+    function sendCurrentModalToBuilder() {
+      if (!currentModalItem) return;
+      const item = currentModalItem;
+      closePromptModal();
+      switchTab('builder');
+      document.getElementById('builderPresetSelect').value = item.id;
+      loadPresetToBuilder(item.id);
+      showToast(`นำ ${item.id} (${item.name}) เข้าสู่ Builder แล้ว`);
+    }
+
+    /**
+     * Before vs After Guide Comparison
+     */
+    function renderComparison() {
+      const selector = document.getElementById('comparisonSelector');
+      const container = document.getElementById('comparisonContainer');
+      if (!selector || !container) return;
+
+      const selectedId = selector.value;
+      const item = PROMPT_LIBRARY_DATA.find(p => p.id === selectedId) || PROMPT_LIBRARY_DATA[0];
+      const enhanced = generateEnhancedPrompt(item);
+
+      container.innerHTML = `
+        <div class="rounded-2xl border border-rose-200 bg-rose-50/40 p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 text-xs font-bold">
+              Before: คำสั่งต้นฉบับสั้นๆ (Base Template)
+            </span>
+            <span class="text-xs text-rose-600 font-medium">บริบทจำกัด</span>
+          </div>
+          <p class="text-xs text-slate-600">
+            หากส่งเฉพาะประโยคสั้นๆ โดยไม่ระบุบทบาท ข้อมูลนำเข้า หรือรูปแบบผลลัพธ์ AI อาจตอบกว้างเกินไปหรือไม่ตรงกับ KPI ของงาน
+          </p>
+          <div class="bg-white border border-rose-200/80 rounded-xl p-3.5 text-sm font-mono text-slate-800">
+            "${escapeHTML(item.template)}"
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold">
+              After: คำสั่งยกระดับด้วย R-T-C-F Framework
+            </span>
+            <button type="button" onclick="quickCopyEnhanced('${escapeAttr(item.id)}')" class="text-xs font-semibold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i> คัดลอก
+            </button>
+          </div>
+          <p class="text-xs text-slate-600">
+            ระบุบทบาท (${escapeHTML(item.department)}) เป้าหมาย (${escapeHTML(item.objective)}) ข้อมูลนำเข้า (${escapeHTML(item.input)}) และ KPI (${escapeHTML(item.kpi)}) ชัดเจน
+          </p>
+          <div class="bg-slate-900 text-slate-100 rounded-xl p-3.5 text-xs font-body whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+${escapeHTML(enhanced)}
+          </div>
+        </div>
+      `;
+      refreshIcons();
+    }
+
+    /**
+     * Prompt Builder Sandbox
+     */
+    function initBuilderPresets() {
+      const select = document.getElementById('builderPresetSelect');
+      if (!select) return;
+      select.innerHTML = '<option value="">-- เลือก Prompt จากคลัง 55 รายการเพื่อนำมาปรับแต่ง --</option>';
+      PROMPT_LIBRARY_DATA.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = `${item.id} | ${item.department} - ${item.name}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function loadPresetToBuilder(id) {
+      selectedBuilderPromptId = id || null;
+      if (!id) {
+        updateBuilderPreview();
+        return;
+      }
+      const item = PROMPT_LIBRARY_DATA.find(p => p.id === id);
+      if (!item) return;
+
+      document.getElementById('bRole').value = `ผู้เชี่ยวชาญด้าน ${item.department} (${item.level})`;
+      document.getElementById('bTask').value = `${item.template} — เพื่อบรรลุเป้าหมาย: ${item.objective}`;
+      document.getElementById('bContext').value = `[ข้อมูลนำเข้าที่ต้องใช้: ${item.input} | กระบวนการ: ${item.process}]\nกรุณาใส่รายละเอียดข้อมูลจริงของหน่วยงานคุณตรงนี้`;
+      document.getElementById('bKpi').value = item.kpi;
+      updateBuilderPreview();
+    }
+
+    function clearBuilder() {
+      selectedBuilderPromptId = null;
+      document.getElementById('builderPresetSelect').value = '';
+      document.getElementById('bRole').value = '';
+      document.getElementById('bTask').value = '';
+      document.getElementById('bContext').value = '';
+      document.getElementById('bKpi').value = '';
+      updateBuilderPreview();
+    }
+
+    function updateBuilderPreview() {
+      const role = String(document.getElementById('bRole').value || '').trim() || 'ผู้เชี่ยวชาญสายงานที่เกี่ยวข้องในองค์กร';
+      const task = String(document.getElementById('bTask').value || '').trim() || 'วิเคราะห์ข้อมูลและสรุปประเด็นสำคัญเพื่อสนับสนุนการตัดสินใจทางธุรกิจ';
+      const context = String(document.getElementById('bContext').value || '').trim() || '[วางข้อมูลนำเข้าหรือรายละเอียดบริบทงานจริงที่นี่]';
+      const format = String(document.getElementById('bFormat').value || '').trim() || 'Executive Summary พร้อมตารางสรุปและข้อเสนอแนะ';
+      const kpi = String(document.getElementById('bKpi').value || '').trim() || 'ความแม่นยำ ความรวดเร็ว และนำไปปฏิบัติได้จริง';
+
+      const compiled = `[บทบาท - Role]
+สวมบทบาทเป็น ${role}
+
+[คำสั่งและเป้าหมาย - Task & Objective]
+${task}
+
+[ข้อมูลนำเข้าและบริบท - Context]
+"""
+${context}
+"""
+
+[รูปแบบผลลัพธ์และเกณฑ์วัดผล - Format & KPI]
+- รูปแบบผลลัพธ์: ${format}
+- ตัวชี้วัด/เงื่อนไขสำคัญ: ${kpi}`;
+
+      document.getElementById('builderLiveOutput').textContent = compiled;
+    }
+
+    function copyBuilderPrompt() {
+      requireLoggedInUser(() => {
+        const text = document.getElementById('builderLiveOutput').textContent;
+        const targetItem = selectedBuilderPromptId
+          ? PROMPT_LIBRARY_DATA.find(p => p.id === selectedBuilderPromptId)
+          : {
+              id: "CUSTOM-BUILDER",
+              name: "Custom R-T-C-F Prompt",
+              department: currentUser ? currentUser.empDept : "Corporate"
+            };
+        recordStudyActivity(targetItem, "คัดลอก Prompt (Copy)");
+        copyToClipboard(text, 'คัดลอก Prompt จาก Builder และบันทึกประวัติเรียบร้อยแล้ว!');
+      });
+    }
+
+    /**
+     * Study Logs Dashboard & Excel-safe CSV Export
+     */
+    function renderLogsView() {
+      studyLogs = sanitizeLogsArray(studyLogs);
+      updateLogBadge();
+
+      const uniqueEmpIds = new Set(
+        studyLogs.map(l => String(l.empId)).filter(id => id && id !== 'GUEST')
+      );
+      const totalViews = studyLogs.filter(l => l.action.includes('เปิดศึกษา')).length;
+      const totalCopies = studyLogs.filter(l => l.action.includes('คัดลอก')).length;
+
+      document.getElementById('logStatUniqueUsers').textContent = String(uniqueEmpIds.size);
+      document.getElementById('logStatTotalViews').textContent = String(totalViews);
+      document.getElementById('logStatTotalCopies').textContent = String(totalCopies);
+
+      const promptCounts = {};
+      const deptCounts = {};
+      studyLogs.forEach(l => {
+        const isPromptItem = PROMPT_LIBRARY_DATA.some(p => p.id === l.promptId);
+        if (isPromptItem) {
+          promptCounts[l.promptId] = (promptCounts[l.promptId] || 0) + 1;
+        }
+        const deptKey = l.empDept || 'Other';
+        deptCounts[deptKey] = (deptCounts[deptKey] || 0) + 1;
+      });
+
+      const sortedPrompts = Object.entries(promptCounts).sort((a, b) => b[1] - a[1]);
+      if (sortedPrompts.length > 0) {
+        const topId = sortedPrompts[0][0];
+        const topObj = PROMPT_LIBRARY_DATA.find(p => p.id === topId);
+        document.getElementById('logStatTopPrompt').textContent = `${topId} (${topObj ? topObj.name : ''})`;
+      } else {
+        document.getElementById('logStatTopPrompt').textContent = '-';
+      }
+
+      const topPromptsEl = document.getElementById('topPromptsChart');
+      if (sortedPrompts.length === 0) {
+        topPromptsEl.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">ยังไม่มีข้อมูลการเข้าศึกษา Prompt</p>`;
+      } else {
+        const maxP = sortedPrompts[0][1] || 1;
+        topPromptsEl.innerHTML = sortedPrompts.slice(0, 5).map(([pid, cnt]) => {
+          const pObj = PROMPT_LIBRARY_DATA.find(p => p.id === pid);
+          const widthPct = Math.max(12, Math.round((cnt / maxP) * 100));
+          return `
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-800 truncate pr-2">
+                  <span class="text-indigo-600 font-mono">${escapeHTML(pid)}</span> • ${escapeHTML(pObj ? pObj.name : pid)}
+                </span>
+                <span class="font-bold text-slate-600 shrink-0">${cnt} ครั้ง</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div class="bg-indigo-600 h-2 rounded-full" style="width: ${widthPct}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const sortedDepts = Object.entries(deptCounts).sort((a, b) => b[1] - a[1]);
+      const deptChartEl = document.getElementById('deptActivityChart');
+      if (sortedDepts.length === 0) {
+        deptChartEl.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">ยังไม่มีข้อมูลกิจกรรมรายแผนก</p>`;
+      } else {
+        const maxD = sortedDepts[0][1] || 1;
+        deptChartEl.innerHTML = sortedDepts.slice(0, 5).map(([dName, cnt]) => {
+          const widthPct = Math.max(12, Math.round((cnt / maxD) * 100));
+          return `
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-800">${escapeHTML(dName)}</span>
+                <span class="font-bold text-emerald-700">${cnt} กิจกรรม</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div class="bg-emerald-500 h-2 rounded-full" style="width: ${widthPct}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const q = String(document.getElementById('logSearchInput').value || '').trim().toLowerCase();
+      const actionFilter = document.getElementById('logActionFilter').value;
+      const userDeptFilter = document.getElementById('logUserDeptFilter').value;
+
+      const filteredLogs = studyLogs.filter(l => {
+        if (actionFilter !== 'ALL' && l.action !== actionFilter) return false;
+        if (userDeptFilter !== 'ALL' && l.empDept !== userDeptFilter) return false;
+        if (q) {
+          const hay = `${l.timestamp} ${l.empId} ${l.empName} ${l.empDept} ${l.promptId} ${l.promptName} ${l.action}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('logFilteredCount').textContent = String(filteredLogs.length);
+
+      const tbody = document.getElementById('studyLogsTableBody');
+      if (filteredLogs.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-10 text-center text-slate-400 text-sm">
+              ไม่พบบันทึกประวัติการเข้าศึกษาที่ตรงกับเงื่อนไข
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filteredLogs.map(log => {
+        let actionBadge = 'bg-sky-50 text-sky-700 border-sky-200';
+        if (log.action.includes('เข้าสู่ระบบ')) actionBadge = 'bg-violet-50 text-violet-700 border-violet-200';
+        if (log.action.includes('คัดลอก')) actionBadge = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        if (log.action.includes('เรียนจบ')) actionBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        if (log.action.includes('ออกจากระบบ')) actionBadge = 'bg-rose-50 text-rose-700 border-rose-200';
+
+        const isLibraryPrompt = PROMPT_LIBRARY_DATA.some(p => p.id === log.promptId);
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3 px-4 text-xs text-slate-500 whitespace-nowrap font-mono">${escapeHTML(log.timestamp)}</td>
+            <td class="py-3 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">${escapeHTML(log.empId)}</td>
+            <td class="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">${escapeHTML(log.empName)}</td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">${escapeHTML(log.empDept)}</span>
+            </td>
+            <td class="py-3 px-4 font-mono text-xs font-bold text-indigo-600 whitespace-nowrap">
+              ${isLibraryPrompt
+                ? `<button type="button" onclick="openPromptModal('${escapeAttr(log.promptId)}')" class="underline hover:text-indigo-800">${escapeHTML(log.promptId)}</button>`
+                : escapeHTML(log.promptId)}
+            </td>
+            <td class="py-3 px-4 text-slate-700 max-w-xs truncate">${escapeHTML(log.promptName)}</td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold border ${actionBadge}">
+                ${escapeHTML(log.action)}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Neutralizes CSV formula injection (=, +, -, @, tab, CR) and quotes safely
+     */
+    function sanitizeCSVCell(value) {
+      let str = value === null || value === undefined ? '' : String(value);
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    function exportLogsToCSV() {
+      if (!Array.isArray(studyLogs) || studyLogs.length === 0) {
+        showToast('ไม่มีข้อมูล Log สำหรับส่งออก');
+        return;
+      }
+      const headers = ['วัน-เวลา (พ.ศ.)', 'รหัสพนักงาน', 'ชื่อ-นามสกุล', 'แผนกพนักงาน', 'ระดับตำแหน่ง', 'รหัส Prompt', 'ชื่อ Prompt', 'หมวด Prompt', 'กิจกรรม'];
+      const rows = studyLogs.map(l => [
+        l.timestamp,
+        l.empId,
+        l.empName,
+        l.empDept,
+        l.empLevel,
+        l.promptId,
+        l.promptName,
+        l.promptDept,
+        l.action
+      ]);
+
+      const csvContent = '\uFEFF' + [headers, ...rows]
+        .map(row => row.map(sanitizeCSVCell).join(','))
+        .join('\n');
+
+      try {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Enterprise_Prompt_Study_Logs_${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast('ส่งออกไฟล์ CSV (รองรับภาษาไทยใน Excel) เรียบร้อยแล้ว');
+      } catch (err) {
+        console.error('CSV export failed:', err);
+        showRuntimeError('ไม่สามารถดาวน์โหลดไฟล์ CSV ได้ในสภาพแวดล้อมนี้');
+      }
+    }
+
+    function openClearLogsConfirm() {
+      document.getElementById('clearLogsModal').classList.remove('hidden');
+      refreshIcons();
+    }
+
+    function closeClearLogsConfirm() {
+      document.getElementById('clearLogsModal').classList.add('hidden');
+    }
+
+    function confirmClearLogs() {
+      studyLogs = [];
+      persistLogs();
+      updateLogBadge();
+      renderLogsView();
+      closeClearLogsConfirm();
+      showToast('ล้างข้อมูล Log ทั้งหมดเรียบร้อยแล้ว');
+    }
+
+    /**
+     * Clipboard Helper with execCommand fallback
+     */
+    function copyToClipboard(text, successMsg) {
+      const payload = String(text || '');
+      if (!payload) return;
+
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(payload)
+          .then(() => showToast(successMsg || 'คัดลอกข้อความเรียบร้อยแล้ว!'))
+          .catch(() => fallbackExecCommandCopy(payload, successMsg));
+      } else {
+        fallbackExecCommandCopy(payload, successMsg);
+      }
+    }
+
+    function fallbackExecCommandCopy(text, successMsg) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast(successMsg || 'คัดลอกข้อความเรียบร้อยแล้ว!');
+      } catch (err) {
+        showToast('ไม่สามารถคัดลอกอัตโนมัติได้ กรุณาเลือกข้อความและคัดลอกด้วยตนเอง');
+      }
+    }
+
+    /**
+     * Toast Notification
+     */
+    let toastTimeout = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const msgEl = document.getElementById('toastMessage');
+      if (!toast || !msgEl) return;
+
+      msgEl.textContent = String(msg || '');
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2800);
+    }
+
+    /**
+     * Escape key handler for open modals
+     */
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closePromptModal();
+        closeLogoutConfirmModal();
+        closeClearLogsConfirm();
+        if (currentUser) {
+          closeUserLoginModal();
+        }
+      }
+    });
+
+    /**
+     * Application Bootstrap
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        initFilters();
+        initBuilderPresets();
+        updateUserHeaderUI();
+        updateProgressUI();
+        updateLogBadge();
+        renderCards();
+        renderComparison();
+        updateBuilderPreview();
+        refreshIcons();
+
+        if (!currentUser) {
+          openUserLoginModal(true);
+        }
+      } catch (err) {
+        console.error('Initialization error:', err);
+        showRuntimeError('เกิดข้อผิดพลาดระหว่างเริ่มต้นระบบ กรุณารีเฟรชหน้าเว็บอีกครั้ง');
+      }
+    });
+  </script>
+</body>
+</html>
